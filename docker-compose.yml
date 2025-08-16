@@ -1,0 +1,57 @@
+version: '3.8'
+
+services:
+  stock-dashboard:
+    build: .
+    ports:
+      - "8000:8000"  # Backend API
+      - "3000:3000"  # Frontend
+    environment:
+      - PYTHONPATH=/app/backend
+      - DATABASE_URL=sqlite:///./stock_dashboard.db
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Alternative: Separate services for development
+  backend-dev:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: python
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONPATH=/app/backend
+      - DATABASE_URL=sqlite:///./stock_dashboard.db
+    volumes:
+      - ./backend:/app/backend
+      - ./data:/app/data
+    command: cd backend && python -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+    profiles:
+      - dev
+
+  frontend-dev:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - REACT_APP_API_URL=http://localhost:8000/api
+    profiles:
+      - dev
+    depends_on:
+      - backend-dev
+
+volumes:
+  data:
